@@ -12,5 +12,8 @@ void loop()
   Serial.println("Running...");
   delay(1000);
     Serial.println("caca...");
+      delay(1000);
+    Serial.println("test2...");
+
 
 }

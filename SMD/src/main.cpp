@@ -1,122 +1,217 @@
 #include <Arduino.h>
 #include <IRremote.hpp>
+#include "Distance.h"
 
 #define IR_RECEIVE_PIN 15
 
-// ===== MOTEUR =====
-const int PIN_ENA = 14;
-const int PIN_IN1 = 32;
-const int PIN_IN2 = 33;
+#define CAPTEUR_GAUCHE 0
+#define CAPTEUR_DROITE 1
 
-const int PWM_FREQ = 1000;
-const int PWM_RESOLUTION = 8;
-const int PWM_CHANNEL = 0;
-const int VITESSE_MOTEUR = 200;
+const int DISTANCE_OBSTACLE = 150;
 
-// ===== TELECOMMANDE =====
+// Adresse de la télécommande
 const uint16_t REMOTE_ADDRESS = 0x4587;
 
+// Commandes
 const uint8_t CMD_AVANCE = 0x28;
 const uint8_t CMD_DROITE = 0x2A;
 const uint8_t CMD_GAUCHE = 0x2E;
 const uint8_t CMD_RECULE = 0x2C;
+const uint8_t CMD_MODE   = 0x17;
 
-const unsigned long STOP_AUTOMATIQUE_MS = 1200;
-unsigned long dernierOrdreValide = 0;
+enum ModeRobot
+{
+  MODE_MANUEL,
+  MODE_AUTOMATIQUE
+};
 
-// ===== MOTEUR =====
-void vitesse(int v) {
-  if (v < 0) v = 0;
-  if (v > 255) v = 255;
-  ledcWrite(PWM_CHANNEL, v);
+ModeRobot modeActuel = MODE_MANUEL;
+
+// -------------------------------------------------------------------------------------------------
+// Retourne true si la commande fait partie de celles qu'on accepte
+// -------------------------------------------------------------------------------------------------
+bool commandeValide(uint8_t cmd)
+{
+  return (cmd == CMD_AVANCE ||
+          cmd == CMD_DROITE ||
+          cmd == CMD_GAUCHE ||
+          cmd == CMD_RECULE ||
+          cmd == CMD_MODE);
 }
 
-void stopMoteur() {
-  digitalWrite(PIN_IN1, LOW);
-  digitalWrite(PIN_IN2, LOW);
-  vitesse(0);
-  Serial.println("STOP");
+// -------------------------------------------------------------------------------------------------
+// Affichage clair de la commande
+// -------------------------------------------------------------------------------------------------
+void afficherCommande(uint8_t cmd)
+{
+  if (cmd == CMD_AVANCE)
+  {
+    Serial.println(">>> AVANCE");
+  }
+  else if (cmd == CMD_DROITE)
+  {
+    Serial.println(">>> DROITE");
+  }
+  else if (cmd == CMD_GAUCHE)
+  {
+    Serial.println(">>> GAUCHE");
+  }
+  else if (cmd == CMD_RECULE)
+  {
+    Serial.println(">>> RECULE");
+  }
+  else if (cmd == CMD_MODE)
+  {
+    Serial.println(">>> CHANGER MODE");
+  }
+  else
+  {
+    Serial.println(">>> COMMANDE INCONNUE");
+  }
 }
 
-void avancer() {
-  digitalWrite(PIN_IN1, HIGH);
-  digitalWrite(PIN_IN2, LOW);
-  vitesse(VITESSE_MOTEUR);
-  Serial.println("AVANCE");
-}
+// -------------------------------------------------------------------------------------------------
+// Mode automatique sans moteur : affiche juste ce que le robot ferait
+// -------------------------------------------------------------------------------------------------
+void modeAutomatique()
+{
+  LireDistances();
 
-void reculer() {
-  digitalWrite(PIN_IN1, LOW);
-  digitalWrite(PIN_IN2, HIGH);
-  vitesse(VITESSE_MOTEUR);
-  Serial.println("RECULE");
-}
+  Serial.print("Capteur 0 : ");
+  Serial.print(distances[0]);
+  Serial.println(" mm");
 
-void droite() {
-  digitalWrite(PIN_IN1, HIGH);
-  digitalWrite(PIN_IN2, LOW);
-  vitesse(VITESSE_MOTEUR);
-  Serial.println("DROITE");
-}
+  Serial.print("Capteur 1 : ");
+  Serial.print(distances[1]);
+  Serial.println(" mm");
 
-void gauche() {
-  digitalWrite(PIN_IN1, LOW);
-  digitalWrite(PIN_IN2, HIGH);
-  vitesse(VITESSE_MOTEUR);
-  Serial.println("GAUCHE");
-}
-
-void commande(uint8_t cmd) {
-  if (cmd == CMD_AVANCE) avancer();
-  else if (cmd == CMD_DROITE) droite();
-  else if (cmd == CMD_GAUCHE) gauche();
-  else if (cmd == CMD_RECULE) reculer();
-  else {
-    Serial.print("Commande inconnue: 0x");
-    Serial.println(cmd, HEX);
+  if (distances[0] >= 9000 || distances[1] >= 9000)
+  {
+    Serial.println("Erreur capteur / aucun signal fiable");
+    Serial.println("----------------------------");
     return;
   }
 
-  dernierOrdreValide = millis();
+  int indexMin = IndexDistanceMin();
+  int distanceMin = distances[indexMin];
+
+  Serial.print("Distance minimale : ");
+  Serial.print(distanceMin);
+  Serial.println(" mm");
+
+  if (distanceMin < DISTANCE_OBSTACLE)
+  {
+    if (indexMin == CAPTEUR_GAUCHE)
+    {
+      Serial.println("AUTO -> obstacle a gauche");
+      Serial.println("AUTO -> tourner a droite");
+    }
+    else
+    {
+      Serial.println("AUTO -> obstacle a droite");
+      Serial.println("AUTO -> tourner a gauche");
+    }
+  }
+  else
+  {
+    Serial.println("AUTO -> chemin libre");
+    Serial.println("AUTO -> avancer");
+  }
+
+  Serial.println("----------------------------");
 }
 
-void setup() {
+// -------------------------------------------------------------------------------------------------
+// Setup
+// -------------------------------------------------------------------------------------------------
+void setup()
+{
   Serial.begin(115200);
   delay(500);
 
-  pinMode(PIN_IN1, OUTPUT);
-  pinMode(PIN_IN2, OUTPUT);
+  InitCapteur();
 
-  ledcSetup(PWM_CHANNEL, PWM_FREQ, PWM_RESOLUTION);
-  ledcAttachPin(PIN_ENA, PWM_CHANNEL);
-
-  stopMoteur();
   IrReceiver.begin(IR_RECEIVE_PIN, ENABLE_LED_FEEDBACK);
 
   Serial.println("Pret");
+  Serial.println("Mode MANUEL");
+  Serial.println("----------------------------");
 }
 
-void loop() {
-  if (dernierOrdreValide && millis() - dernierOrdreValide > STOP_AUTOMATIQUE_MS) {
-    stopMoteur();
-    dernierOrdreValide = 0;
+// -------------------------------------------------------------------------------------------------
+// Loop
+// -------------------------------------------------------------------------------------------------
+void loop()
+{
+  if (IrReceiver.decode())
+  {
+    uint16_t adresse = IrReceiver.decodedIRData.address;
+    uint8_t cmd = IrReceiver.decodedIRData.command;
+    bool repetition = IrReceiver.decodedIRData.flags & IRDATA_FLAGS_IS_REPEAT;
+
+    // On ignore les repeats pour éviter le spam
+    if (!repetition)
+    {
+      // On garde un petit filtrage :
+      // - on garde seulement les commandes qui nous intéressent
+      // - on garde aussi la bonne adresse
+      if (commandeValide(cmd) && adresse == REMOTE_ADDRESS)
+      {
+        Serial.print("Adresse = 0x");
+        Serial.println(adresse, HEX);
+
+        Serial.print("Commande = 0x");
+        Serial.println(cmd, HEX);
+
+        afficherCommande(cmd);
+
+        if (cmd == CMD_MODE)
+        {
+          if (modeActuel == MODE_MANUEL)
+          {
+            modeActuel = MODE_AUTOMATIQUE;
+            Serial.println("=== MODE AUTOMATIQUE ===");
+          }
+          else
+          {
+            modeActuel = MODE_MANUEL;
+            Serial.println("=== MODE MANUEL ===");
+          }
+        }
+        else if (modeActuel == MODE_MANUEL)
+        {
+          // En mode manuel on affiche juste la direction détectée
+          // sans moteur ici
+        }
+
+        Serial.println("----------------------------");
+      }
+      else
+      {
+        // On garde un peu de bruit, mais propre
+        // sans afficher les numéros de protocoles inutiles
+        if (cmd != 0x00)
+        {
+          Serial.print("Bruit / autre signal detecte");
+          Serial.print(" | Addr=0x");
+          Serial.print(adresse, HEX);
+          Serial.print(" | Cmd=0x");
+          Serial.println(cmd, HEX);
+          Serial.println("----------------------------");
+        }
+      }
+    }
+
+    IrReceiver.resume();
   }
 
-  if (!IrReceiver.decode()) return;
-
-  Serial.print("Protocol=");
-  Serial.print(IrReceiver.decodedIRData.protocol);
-  Serial.print(" Addr=0x");
-  Serial.print(IrReceiver.decodedIRData.address, HEX);
-  Serial.print(" Cmd=0x");
-  Serial.println(IrReceiver.decodedIRData.command, HEX);
-
-  if (IrReceiver.decodedIRData.protocol == NEC &&
-      IrReceiver.decodedIRData.address == REMOTE_ADDRESS) {
-    commande(IrReceiver.decodedIRData.command);
-  } else {
-    Serial.println("Bruit / autre signal");
+  if (modeActuel == MODE_AUTOMATIQUE)
+  {
+    modeAutomatique();
+    delay(300);
   }
-
-  IrReceiver.resume();
+  else
+  {
+    delay(50);
+  }
 }

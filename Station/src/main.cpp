@@ -1,94 +1,124 @@
 #include <Arduino.h>
-#include "Wire.h"
-#include "Adafruit_GFX.h"
-#include "Adafruit_SSD1306.h"
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+#include "Accessoires.h"
+#include "Lcd.h"
 
-// ====== CONFIG SIMPLE ======
-#define SDA_PIN 21
-#define SCL_PIN 22
-
-#define MODE_TEST 0
-#define MODE_REMOTE 1
-
-int mode = MODE_TEST;   // change à MODE_REMOTE plus tard
+#define MODE_TEST 1
 
 int percent = 0;
-int percentRobot = 75;  // valeur fake reçue du robot plus tard
-
-Adafruit_SSD1306 display(128, 64, &Wire, -1);
-
-#define DIS_WIDTH 128
-#define DIS_HEIGHT 64
-
-void scanI2C() {
-  Serial.println("Scan I2C...");
-
-  for (byte address = 1; address < 127; address++) {
-    Wire.beginTransmission(address);
-
-    if (Wire.endTransmission() == 0) {
-      Serial.print("Trouve: 0x");
-      Serial.println(address, HEX);
-    }
-  }
-}
 
 void setup() {
   Serial.begin(115200);
   delay(1000);
 
-  Wire.begin(SDA_PIN, SCL_PIN);  // SDA/SCL pour ESP32
-
-  scanI2C();
+  Wire.begin();
 
   if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
-    Serial.println(F("SSD1306 allocation failed"));
-    for (;;);
+    Serial.println("SSD1306 failed");
+    while (true) {
+    }
   }
 
-  delay(2000);
+  initAccessoires();
+
   display.clearDisplay();
+  display.display();
+
+  beepCourt();
+  ledOrange();
 }
 
 void loop() {
 
-  // ====== SOURCE DU POURCENTAGE ======
-  if (mode == MODE_TEST) {
-    percent++;
+#if MODE_TEST
 
-    if (percent > 100) {
-      percent = 0;
-    }
-  }
+  // ===== TEST ORANGE =====
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setTextColor(SSD1306_WHITE);
+  display.setCursor(0, 0);
+  display.println("TEST ACCESSOIRES");
 
-  if (mode == MODE_REMOTE) {
-    percent = percentRobot; // plus tard: valeur reçue du robot
-  }
+  display.setCursor(0, 20);
+  display.println("LED: ORANGE");
 
-  // ====== AFFICHAGE OLED ======
+  display.setCursor(0, 35);
+  display.println("BUZZER: BEEP");
+
+  display.display();
+
+  ledOrange();
+  beepCourt();
+  delay(1000);
+
+  // ===== TEST VERT =====
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.println("TEST ACCESSOIRES");
+
+  display.setCursor(0, 20);
+  display.println("LED: VERT");
+
+  display.setCursor(0, 35);
+  display.println("BUZZER: BEEP");
+
+  display.display();
+
+  ledVert();
+  beepCourt();
+  delay(1000);
+
+  // ===== TEST OFF =====
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.println("TEST ACCESSOIRES");
+
+  display.setCursor(0, 20);
+  display.println("LED: OFF");
+
+  display.setCursor(0, 35);
+  display.println("BUZZER: OFF");
+
+  display.display();
+
+  ledOff();
+  delay(1000);
+
+#else
+
+  // ===== MODE NORMAL =====
+
   display.clearDisplay();
 
   display.setTextSize(1);
-  display.setTextColor(WHITE);
+  display.setTextColor(SSD1306_WHITE);
   display.setCursor(0, 0);
-
-  if (mode == MODE_TEST) {
-    display.println("Test batterie");
-  } else {
-    display.println("Batterie robot");
-  }
+  display.println("En chargement !");
 
   display.setCursor(10, 22);
   display.print(percent);
   display.print("%");
 
-  display.drawRect(10, 40, 80, 20, WHITE);
-  display.fillRect(90, 46, 5, 8, WHITE);
+  display.drawRect(10, 40, 80, 20, SSD1306_WHITE);
+  display.fillRect(90, 46, 5, 8, SSD1306_WHITE);
 
   int levelWidth = map(percent, 0, 100, 0, 76);
-  display.fillRect(12, 42, levelWidth, 16, WHITE);
+  display.fillRect(12, 42, levelWidth, 16, SSD1306_WHITE);
 
   display.display();
 
+  if (percent < 50) {
+    ledOrange();
+  } else {
+    ledVert();
+  }
+
+  percent++;
+  if (percent > 100) percent = 0;
+
   delay(80);
+
+#endif
 }

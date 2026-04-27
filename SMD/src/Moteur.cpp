@@ -12,14 +12,14 @@ Description : Gestion du moteur du robot avec un H-bridge.
 
 //  MOTEUR enable A
 
-const int PIN_ENA = 14;
+const int PIN_ENA = 14;//changer les pins 
 const int PIN_IN1 = 32;
 const int PIN_IN2 = 33;
 
 /*                      //changer les pins dependant du 2me moteurs
-const int PIN_ENA = 14;
-const int PIN_IN1 = 32;
-const int PIN_IN2 = 33;
+const int PIN_ENA = ??;
+const int PIN_IN3 = ??;
+const int PIN_IN4 = ??;
 */
 
 //parametre MOTEUR PWM

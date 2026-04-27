@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include "Distance.h"
 #include "Capteur_IR.h"
+//#include "Moteur.h" changer les pins parce quaussi non ca bug avec les capteurs de distance
 
 #define CAPTEUR_GAUCHE 0
 #define CAPTEUR_DROITE 1
@@ -11,11 +12,11 @@ void modeAutomatique()
 {
   LireDistances();
 
-  Serial.print("Capteur 0 : ");
+  Serial.print("Capteur Droite : ");
   Serial.print(distances[0]);
   Serial.println(" mm");
 
-  Serial.print("Capteur 1 : ");
+  Serial.print("Capteur Gauche : ");
   Serial.print(distances[1]);
   Serial.println(" mm");
 
@@ -39,17 +40,20 @@ void modeAutomatique()
     {
       Serial.println("AUTO -> obstacle a gauche");
       Serial.println("AUTO -> tourner a droite");
+      //droite();
     }
     else
     {
       Serial.println("AUTO -> obstacle a droite");
       Serial.println("AUTO -> tourner a gauche");
+      //gauche():
     }
   }
   else
   {
     Serial.println("AUTO -> chemin libre");
     Serial.println("AUTO -> avancer");
+    //avancer();
   }
 
   Serial.println("----------------------------");
@@ -62,6 +66,7 @@ void setup()
 
   InitCapteur();
   InitIR();
+  //InitMoteur();
 
   Serial.println("Pret");
   Serial.println("Mode MANUEL");
@@ -77,7 +82,7 @@ void loop()
     modeAutomatique();
     delay(300);
   }
-  else
+  else if (modeActuel == MODE_MANUEL)
   {
     delay(50);
   }

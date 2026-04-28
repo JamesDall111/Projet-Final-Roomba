@@ -1,9 +1,23 @@
+#ifndef COMMWIFI_H
+#define COMMWIFI_H
+
+#include <Arduino.h>
+
+void initCommWifi();
+int getBatterie();
+bool isDataReceived();
+
+#endif
+
+
+/*main modif 
 #include <Arduino.h>
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include "Accessoires.h"
 #include "Lcd.h"
+#include "CommWifi.h"
 
 int percent = 0;
 
@@ -19,30 +33,35 @@ void setup() {
   }
 
   initAccessoires();
+  initCommWifi();
 
   display.clearDisplay();
   display.display();
 
-  beepCourt();
-  ledBleu();   // bleu au départ
+  ledBleu();
 }
 
 void loop() {
+
+  if (isDataReceived()) {
+    percent = getBatterie();
+  }
+
   display.clearDisplay();
 
   display.setTextSize(1);
   display.setTextColor(SSD1306_WHITE);
   display.setCursor(0, 0);
-  display.println("Station de charge");
+  display.println("Station");
 
   display.setCursor(0, 12);
 
   if (percent < 60) {
-    display.println("Etat: EN CHARGE");
-    ledBleu();     // toujours bleu sous 60%
+    display.println("EN CHARGE");
+    ledBleu();
   } else {
-    display.println("Etat: CHARGE OK");
-    ledVert();     // vert à partir de 60%
+    display.println("CHARGE OK");
+    ledVert();
   }
 
   display.setTextSize(2);
@@ -58,17 +77,6 @@ void loop() {
 
   display.display();
 
-  // petit bip seulement au passage à 60%
-  if (percent == 60) {
-    beepCourt();
-  }
-
-  percent++;
-
-  if (percent > 100) {
-    percent = 0;
-    ledBleu();   // retour bleu quand ça recommence à 0/1%
-  }
-
-  delay(150);
+  delay(200);
 }
+*/

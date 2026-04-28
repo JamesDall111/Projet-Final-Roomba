@@ -7,28 +7,48 @@ void initAccessoires() {
   ledcWrite(BUZZER_CHANNEL, 0);
 
   // ===== LED =====
-  pinMode(PIN_LED_DATA, OUTPUT);
-  digitalWrite(PIN_LED_DATA, LOW);
+  pinMode(PIN_LED, OUTPUT);
+
+  // état de départ
+  ledOff();
 }
 
 // ===== BUZZER =====
 void beepCourt() {
-  ledcWrite(BUZZER_CHANNEL, 128); // son
+  ledcWrite(BUZZER_CHANNEL, 128);
   delay(100);
-  ledcWrite(BUZZER_CHANNEL, 0);   // stop
+  ledcWrite(BUZZER_CHANNEL, 0);
 }
 
-// ===== LED (temporaire) =====
+// ===== LED 1 PIN =====
+// Selon ton branchement :
+// Blanc → 3.3V
+// Noir  → GND
+// Rouge → PIN_LED avec résistance
+
 void ledOff() {
-  digitalWrite(PIN_LED_DATA, LOW);
+  digitalWrite(PIN_LED, LOW);
 }
 
-void ledOrange() {
-  // ⚠️ pour l’instant juste ON
-  digitalWrite(PIN_LED_DATA, HIGH);
+void ledBleu() {
+  digitalWrite(PIN_LED, HIGH);
 }
 
 void ledVert() {
-  // ⚠️ idem (ta LED ne permet pas de changer couleur pour l’instant)
-  digitalWrite(PIN_LED_DATA, HIGH);
+  digitalWrite(PIN_LED, LOW);
+}
+// ===== TEST =====
+void ledTestSequence() {
+  Serial.println("LED BLEU");
+  ledBleu();
+  delay(2000);
+
+  Serial.println("LED VERT + BEEP");
+  ledVert();
+  beepCourt();
+  delay(2000);
+
+  Serial.println("LED OFF");
+  ledOff();
+  delay(2000);
 }

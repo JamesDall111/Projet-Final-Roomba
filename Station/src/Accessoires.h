@@ -5,22 +5,21 @@
 
 // ===== PINS =====
 #define PIN_BUZZER 14
-#define PIN_LED_DATA 26   // ton fil LED actuel
+#define PIN_LED 32
 
-// ===== BUZZER (ESP32 PWM) =====
+// ===== BUZZER PWM =====
 #define BUZZER_CHANNEL 0
 #define BUZZER_FREQ 2000
 #define BUZZER_RESOLUTION 8
 
-// ===== INIT =====
 void initAccessoires();
 
-// ===== BUZZER =====
 void beepCourt();
 
-// ===== LED =====
 void ledOff();
-void ledOrange();
+void ledBleu();
 void ledVert();
+
+void ledTestSequence();
 
 #endif

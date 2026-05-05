@@ -1,4 +1,4 @@
-#include <Arduino.h>
+#include <Arduino.h> 
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
@@ -24,7 +24,10 @@ void setup() {
   display.display();
 
   beepCourt();
-  ledBleu();   // bleu au départ
+  ledBleu();
+
+  // Allume les 5 LED infrarouges de la station
+  IR_On();
 }
 
 void loop() {
@@ -39,26 +42,28 @@ void loop() {
 
   if (percent < 60) {
     display.println("Etat: EN CHARGE");
-    ledBleu();     // toujours bleu sous 60%
+    ledBleu();
   } else {
     display.println("Etat: CHARGE OK");
-    ledVert();     // vert à partir de 60%
+    ledVert();
   }
 
+  display.setCursor(0, 22);
+  display.println("IR: ON");
+
   display.setTextSize(2);
-  display.setCursor(10, 25);
+  display.setCursor(10, 35);
   display.print(percent);
   display.print("%");
 
-  display.drawRect(10, 50, 80, 12, SSD1306_WHITE);
-  display.fillRect(90, 53, 5, 6, SSD1306_WHITE);
+  display.drawRect(10, 55, 80, 8, SSD1306_WHITE);
+  display.fillRect(90, 57, 5, 4, SSD1306_WHITE);
 
   int levelWidth = map(percent, 0, 100, 0, 76);
-  display.fillRect(12, 52, levelWidth, 8, SSD1306_WHITE);
+  display.fillRect(12, 57, levelWidth, 4, SSD1306_WHITE);
 
   display.display();
 
-  // petit bip seulement au passage à 60%
   if (percent == 60) {
     beepCourt();
   }
@@ -67,7 +72,7 @@ void loop() {
 
   if (percent > 100) {
     percent = 0;
-    ledBleu();   // retour bleu quand ça recommence à 0/1%
+    ledBleu();
   }
 
   delay(150);

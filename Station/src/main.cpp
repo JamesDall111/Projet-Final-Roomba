@@ -13,6 +13,7 @@ void setup() {
 
   Wire.begin();
 
+  // 🔥 IMPORTANT → initialisation écran
   if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
     Serial.println("SSD1306 failed");
     while (true) {}
@@ -26,15 +27,24 @@ void setup() {
   beepCourt();
   ledBleu();
 
-  // Allume les 5 LED infrarouges de la station
-  IR_On();
+  // IR_On(); // si tu veux
 }
 
 void loop() {
+
+  // ===== LOGIQUE LED =====
+  if (percent < 60) {
+    ledBleu();
+  } else {
+    ledVert();
+  }
+
+  // ===== AFFICHAGE =====
   display.clearDisplay();
 
   display.setTextSize(1);
   display.setTextColor(SSD1306_WHITE);
+
   display.setCursor(0, 0);
   display.println("Station de charge");
 
@@ -42,10 +52,8 @@ void loop() {
 
   if (percent < 60) {
     display.println("Etat: EN CHARGE");
-    ledBleu();
   } else {
     display.println("Etat: CHARGE OK");
-    ledVert();
   }
 
   display.setCursor(0, 22);
@@ -64,15 +72,16 @@ void loop() {
 
   display.display();
 
+  // ===== BUZZER =====
   if (percent == 60) {
     beepCourt();
   }
 
+  // ===== INCRÉMENT =====
   percent++;
 
   if (percent > 100) {
     percent = 0;
-    ledBleu();
   }
 
   delay(150);

@@ -4,12 +4,12 @@
 #include <Arduino.h>
 
 // ===== PINS =====
-#define PIN_BUZZER 14
-#define PIN_LED 26
+#define PIN_BUZZER 32
+#define PIN_LED 14
 
 // IR LEDs (choisis tes GPIO libres)
-#define IR_LED_1 32
-#define IR_LED_2 33
+#define IR_LED_1 12
+#define IR_LED_2 26
 #define IR_LED_3 25
 #define IR_LED_4 27
 #define IR_LED_5 13

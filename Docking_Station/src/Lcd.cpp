@@ -7,7 +7,7 @@
 Adafruit_SSD1306 display(128, 64, &Wire, -1);
 
 void initDisplay() {
-  Wire.begin(8, 9); // SDA, SCL
+  Wire.begin(42, 2); // SDA, SCL
 
   if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
     Serial.println("SSD1306 fail");

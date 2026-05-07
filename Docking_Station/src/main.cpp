@@ -21,12 +21,14 @@ void setup() {
   }
 
   initAccessoires();
+    IR_On();
 
   display.clearDisplay();
   display.display();
 
   beepCourt();
   ledBleu();   // bleu au départ
+
 }
 
 void loop() {

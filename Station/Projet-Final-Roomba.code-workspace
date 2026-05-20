@@ -6,6 +6,10 @@
 		{
 			"name": "Station",
 			"path": "Station"
+		},
+		{
+			"name": "Test",
+			"path": "../../../Test"
 		}
 	],
 	"settings": {}

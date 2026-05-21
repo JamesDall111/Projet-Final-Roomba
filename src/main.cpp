@@ -1,11 +1,16 @@
 #include <Arduino.h>
 
+#include "Telecommande_IR.h"
 #include "Moteur.h"
 #include "Accessoires.h"
 #include "Distance.h"
 #include "Batterie.h"
 #include "WebControl.h"
+#include "Capteur_IR.h"
 
+// =====================
+// AUTO
+// =====================
 const int DANGER_DEVANT = 120;
 const int MUR_DEVANT = 190;
 const int COTE_DANGER = 70;
@@ -24,9 +29,13 @@ enum AutoState {
 };
 
 AutoState autoState = AUTO_ANALYSE;
+
 unsigned long autoFinAction = 0;
 bool dernierTourneDroite = true;
 
+// =====================
+// OUTILS AUTO
+// =====================
 void setAutoState(AutoState state, unsigned long duree) {
   autoState = state;
   autoFinAction = millis() + duree;
@@ -36,6 +45,14 @@ bool tempsFini() {
   return millis() >= autoFinAction;
 }
 
+void resetAuto() {
+  autoState = AUTO_ANALYSE;
+  autoFinAction = 0;
+}
+
+// =====================
+// MODE AUTOMATIQUE
+// =====================
 void updateAuto() {
   accessoiresOn();
 
@@ -73,7 +90,7 @@ void updateAuto() {
     appliquerMouvement();
 
     if (tempsFini()) {
-      autoState = AUTO_ANALYSE;
+      resetAuto();
     }
     return;
   }
@@ -85,7 +102,6 @@ void updateAuto() {
 
   int avantMin = min(avantG, avantD);
 
-  // Tres proche devant : recule un peu
   if (avantMin < DANGER_DEVANT) {
     moveCmd = CMD_STOP;
     appliquerMouvement();
@@ -93,7 +109,6 @@ void updateAuto() {
     return;
   }
 
-  // Mur devant : tourne vers le cote le plus libre
   if (avantMin < MUR_DEVANT) {
     moveCmd = CMD_STOP;
     appliquerMouvement();
@@ -118,7 +133,6 @@ void updateAuto() {
     return;
   }
 
-  // Si vraiment trop proche d'un cote, petite correction
   if (coteG < COTE_DANGER) {
     moveCmd = CMD_DROITE;
     setAutoState(AUTO_TOURNE_D, 90);
@@ -131,25 +145,85 @@ void updateAuto() {
     return;
   }
 
-  // Sinon avance
   moveCmd = CMD_AVANCE;
   appliquerMouvement();
 }
 
+// =====================
+// RETOUR BASE
+// =====================
+void updateRetourBase() {
+  accessoiresOff();
+
+  static unsigned long dernierUpdate = 0;
+
+  if (millis() - dernierUpdate < 150) {
+    return;
+  }
+
+  dernierUpdate = millis();
+
+  if (stationSignalConfirme == STATION_VU) {
+    Serial.println("RETOUR BASE : VU -> AVANCER");
+
+    moveCmd = CMD_AVANCE;
+    appliquerMouvement();
+    delay(300);
+
+    moveCmd = CMD_STOP;
+    appliquerMouvement();
+    return;
+  }
+
+  // Pas de signal : tourne pour chercher
+  Serial.println("RETOUR BASE : AUCUN -> CHERCHER");
+
+  moveCmd = CMD_DROITE;
+  appliquerMouvement();
+  delay(80);
+
+  moveCmd = CMD_STOP;
+  appliquerMouvement();
+}
+
+// =====================
+// SETUP
+// =====================
 void setup() {
   Serial.begin(115200);
+  delay(500);
+
+  Serial.println();
+  Serial.println("=== ROBOT SMD ===");
 
   initMoteurs();
   initAccessoires();
   initBatterie();
   initCapteurs();
   initWebControl();
+  InitIR();
+
+  accessoiresOff();
+  moveCmd = CMD_STOP;
+  appliquerMouvement();
+
+  Serial.println("Robot pret");
 }
 
+// =====================
+// LOOP
+// =====================
 void loop() {
   updateWebControl();
+  LireIR();
 
   if (modeRobot == MODE_AUTO) {
     updateAuto();
+  }
+  else if (modeRobot == MODE_RETOUR_BASE) {
+    updateRetourBase();
+  }
+  else if (modeRobot == MODE_MANUEL) {
+    // Rien : robot immobile
   }
 }

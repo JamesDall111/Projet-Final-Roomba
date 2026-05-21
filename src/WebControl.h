@@ -3,7 +3,8 @@
 
 enum ModeRobot {
   MODE_MANUEL,
-  MODE_AUTO
+  MODE_AUTO,
+  MODE_RETOUR_BASE
 };
 
 extern ModeRobot modeRobot;

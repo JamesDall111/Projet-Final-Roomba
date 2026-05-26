@@ -25,6 +25,7 @@ struct IRRawDebug {
 
 void InitIR();
 void LireIR();
+void resetStationIR();
 IRRawDebug getIRRawDebug();
 
 #endif

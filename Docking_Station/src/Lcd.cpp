@@ -7,7 +7,7 @@
 Adafruit_SSD1306 display(128, 64, &Wire, -1);
 
 void initDisplay() {
-  Wire.begin(42, 2); // SDA, SCL
+  Wire.begin(5, 6); // SDA, SCL
 
   if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
     Serial.println("SSD1306 fail");
@@ -25,7 +25,7 @@ void updateDisplay(int percent) {
   display.setTextColor(SSD1306_WHITE);
 
   display.setCursor(0, 0);
-  display.println("Station de charge");
+  display.println("Station de charge124");
 
   display.setCursor(0, 12);
 

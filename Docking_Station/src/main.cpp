@@ -1,4 +1,8 @@
 #include <Arduino.h>
+#include "Gestion_Wireless.h"
+
+/*
+
 #include <Wire.h>
 
 #include <Adafruit_GFX.h>
@@ -114,4 +118,28 @@ void loop() {
   }
 
   delay(100);
+}
+
+*/
+
+// ======================================================
+// NOUVEAU MAIN ESP-NOW
+// ======================================================
+
+void setup() {
+
+  Serial.begin(115200);
+  delay(500);
+
+  Serial.println("\n=== STATION DE RECHARGE ROBOT SMD ===");
+
+  initSansFilStation();
+}
+
+void loop() {
+
+  // Le loop reste disponible
+  // pour d'autres traitements matériels
+
+  delay(1000);
 }

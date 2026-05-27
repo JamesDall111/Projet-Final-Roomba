@@ -1,6 +1,7 @@
 #include "Accessoires.h"
 #include <IRremote.hpp>
 
+
 void initAccessoires() {
 
   // ===== BUZZER =====

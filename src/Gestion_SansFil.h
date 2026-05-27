@@ -3,25 +3,25 @@
 
 #include <Arduino.h>
 
-// Structure du Robot (Doit être le miroir exact de la Station)
-struct StructRobot {
+// Structure du Robot (Forcée compacte)
+struct __attribute__((packed)) StructRobot {
   float tensionBatterie;
   int pourcentage;       
   char etat[16];         
 };
 
-// Structure de la Station reçue en retour
-struct StructStation {
-  bool contactsAlimentes;
-  int correctionTrajectoire;
-  char message[32];
+// Structure de la Station (Forcée compacte)
+struct __attribute__((packed)) StructStation {
+  int rssi;                     
+  int correctionTrajectoire;    
+  bool contactsAlimentes;       
+  char message[32];             
 };
 
-// Partage des variables avec le reste des fichiers du Robot (ex: WebControl.cpp)
 extern StructRobot donneesRobot;
 extern StructStation donneesStation;
+extern int rssiStation;
 
-// Fonctions principales
 void initGestionSansFil();
 void updateGestionSansFil();
 

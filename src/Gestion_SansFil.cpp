@@ -8,15 +8,16 @@
 #include "Moteur.h"
 #include "Accessoires.h"
 
-// Adresse MAC physique de la Station (Validée par tes logs !)
+// Adresse MAC physique de la Station
 uint8_t macStation[6] = {0x90, 0xE5, 0xB1, 0xD5, 0xEF, 0x60}; 
 
 // Allocation de la mémoire pour les variables globales
 StructRobot donneesRobot;
 StructStation donneesStation;
 unsigned long dernierEnvoiRadioMs = 0;
+int rssiStation = -100; // Stockage de la force du signal (dBm)
 
-// Mouchard d'envoi : Alerte le moniteur série du succès ou de l'échec
+// Mouchard d'envoi
 void callbackEnvoiRadio(const uint8_t *mac_addr, esp_now_send_status_t status) {
   Serial.print("[Robot] Envoi ESP-NOW : ");
   if (status == ESP_NOW_SEND_SUCCESS) {
@@ -26,41 +27,19 @@ void callbackEnvoiRadio(const uint8_t *mac_addr, esp_now_send_status_t status) {
   }
 }
 
-// Mouchard de réception : Applique les corrections de trajectoire de la station
 void callbackReceptionRadio(const uint8_t * mac, const uint8_t *incomingData, int len) {
   if (len == sizeof(donneesStation)) {
+    // Copie la structure reçue
     memcpy(&donneesStation, incomingData, sizeof(donneesStation));
     
-    Serial.print("[Robot] Réponse reçue -> ");
-    Serial.println(donneesStation.message);
+    // MISE À JOUR FORCÉE
+    // On ne fait pas de condition, on met à jour la globale systématiquement
+    rssiStation = donneesStation.rssi; 
+
+    Serial.print("RSSI Reçu : ");
+    Serial.println(rssiStation);
     
-    // Si le robot est activement en recherche de base, on écoute les ordres de la station
-    if (modeRobot == MODE_RETOUR_BASE) {
-      
-      // Sécurité amarrage : Si les contacts touchent la tension de charge, arrêt immédiat
-      if (donneesStation.contactsAlimentes) {
-        modeRobot = MODE_MANUEL;
-        moveCmd = CMD_STOP;
-        stopRoues();
-        accessoiresOff();
-        Serial.println("[Robot] Amarrage réussi ! Moteurs coupés.");
-        return;
-      }
-      
-      // Guidage dynamique selon les balises IR lues par la station
-      if (donneesStation.correctionTrajectoire == 1) {
-        moveCmd = CMD_GAUCHE;
-        appliquerMouvement();
-      } 
-      else if (donneesStation.correctionTrajectoire == 2) {
-        moveCmd = CMD_DROITE;
-        appliquerMouvement();
-      } 
-      else if (donneesStation.correctionTrajectoire == 0) {
-        moveCmd = CMD_AVANCE;
-        appliquerMouvement();
-      }
-    }
+    // ... reste du code ...
   }
 }
 
@@ -91,6 +70,7 @@ void initGestionSansFil() {
   // Statuts initiaux
   donneesStation.contactsAlimentes = false;
   donneesStation.correctionTrajectoire = 0;
+  donneesStation.rssi = -100;
   strcpy(donneesStation.message, "RECHERCHE BASE");
 }
 
@@ -99,7 +79,7 @@ void updateGestionSansFil() {
   if (millis() - dernierEnvoiRadioMs >= 1000) {
     dernierEnvoiRadioMs = millis();
 
-    // Lecture de la batterie (Assure-toi que ces fonctions existent dans ton Batterie.h)
+    // Lecture de la batterie
     donneesRobot.tensionBatterie = lireTensionBatterie();
     donneesRobot.pourcentage = lirePourcentageBatterie(donneesRobot.tensionBatterie);
 

@@ -11,6 +11,8 @@ Description : Contrôle d'un robot à l'aide d'une télécommande infrarouge et 
 #ifndef MOTEUR_H
 #define MOTEUR_H
 
+#include <Arduino.h>
+
 enum MoveCmd {
   CMD_STOP,
   CMD_AVANCE,
@@ -22,11 +24,20 @@ enum MoveCmd {
 extern MoveCmd moveCmd;
 
 void initMoteurs();
+
+void setRoueGauche(bool avant, int vitesse);
+void setRoueDroite(bool avant, int vitesse);
+
+void stopRoues();
+
 void avancer();
 void reculer();
 void tournerGauche();
 void tournerDroite();
-void stopRoues();
+
+void tournerGaucheLent();
+void tournerDroiteLent();
+
 void appliquerMouvement();
 
 #endif

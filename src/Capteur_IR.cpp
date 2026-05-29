@@ -4,7 +4,15 @@
 #include "Capteur_IR.h"
 #include "WebControl.h"
 
-#define CONFIRMATIONS_NECESSAIRES 3
+// CHANGEMENT : réduit de 3 à 2 — avec des rafales périodiques, exiger 3 confirmations
+// consécutives était trop strict. Le robot devait rester parfaitement aligné pendant
+// 3 cycles IR d'affilée, ce qui était rarement le cas en rotation.
+#define CONFIRMATIONS_NECESSAIRES 2
+
+// CHANGEMENT : nouveau seuil — si aucun signal reçu pendant 2500ms (au lieu de 1500ms),
+// on invalide. La valeur de 1500ms était trop agressive : une simple rafale manquée
+// (bruit, occultation brève) causait un reset et relançait le balayage inutilement.
+#define TIMEOUT_SIGNAL_MS 2500
 
 StationSignal stationSignalConfirme = STATION_AUCUN;
 StationSignal dernierTypeDetecte    = STATION_AUCUN;
@@ -70,35 +78,32 @@ IRRawDebug getIRRawDebug() {
 // =====================
 
 void LireIR() {
-  // 1. Si aucun paquet de données n'est reçu par le composant matériel
+  // 1. Si aucun paquet reçu
   if (!IrReceiver.decode()) {
     if (modeRobot != MODE_RETOUR_BASE) {
       resetStationIR();
       return;
     }
 
-    // En mode retour base, si on ne reçoit aucun signal valide pendant plus de 1500 ms
-    if (millis() - dernierSignalStationMs > 1500) {
+    // CHANGEMENT : timeout augmenté à 2500ms via la constante nommée
+    if (millis() - dernierSignalStationMs > TIMEOUT_SIGNAL_MS) {
       resetStationIR();
     }
     return;
   }
 
-  // 2. Sécurité : si on n'est pas en mode retour base, on ignore tout traitement
+  // 2. Sécurité hors mode retour base
   if (modeRobot != MODE_RETOUR_BASE) {
     resetStationIR();
-    IrReceiver.resume(); // Libère le tampon
+    IrReceiver.resume();
     return;
   }
 
-  // 3. ANALYSE STATISTIQUE DU SIGNAL (Basé sur tes valeurs réelles : rawlen 60, bursts 30)
+  // 3. Analyse du signal
   int burstsDetectes = IrReceiver.irparams.rawlen / 2;
 
   if (IrReceiver.irparams.rawlen >= 25 && burstsDetectes >= 12) {
-    // Le signal coche toutes les cases de ta balise
     confirmerSignalStation(true);
-    
-    // On met à jour le garde-temps du dernier signal reçu
     dernierSignalStationMs = millis();
 
     Serial.print("[IR] -> Signal valide ! Rawlen: ");
@@ -109,14 +114,13 @@ void LireIR() {
     Serial.print(compteurConfirmation);
     Serial.print("/");
     Serial.println(CONFIRMATIONS_NECESSAIRES);
-  } 
+  }
   else {
-    // Signal trop court (bruit ambiant ou parasite)
     Serial.print("[IR] -> Signal parasite ignoré (Rawlen: ");
     Serial.print(IrReceiver.irparams.rawlen);
     Serial.println(")");
   }
 
-  // 4. Libération obligatoire du récepteur pour la prochaine salve
+  // 4. Libération du récepteur
   IrReceiver.resume();
 }

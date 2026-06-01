@@ -122,21 +122,38 @@ void updateAuto() {
   }
 }
 
-// =====================
-// MODE RETOUR BASE
-// Sans RSSI, seulement LED IR sur GPIO39
-// =====================
 void updateRetourBase() {
 
   accessoiresOff();
 
   static int phaseBase = 0;
   static unsigned long debutPhase = 0;
-  static int niveauScan = 0;
+
+  static StationSignal derniereDirection = STATION_AUCUN;
+  static StationSignal dernierSignalIR = STATION_AUCUN;
+  static unsigned long tempsDernierSignalIR = 0;
 
   int avantG = lireCapteur(0);
   int avantD = lireCapteur(1);
   int avantMin = min(avantG, avantD);
+
+  bool centreProbable = false;
+
+  // ===== DÉTECTION CENTRE PROBABLE =====
+  // Si ça alterne gauche/droite rapidement, le robot est probablement bien aligné
+  if (stationSignalConfirme != STATION_AUCUN) {
+
+    if ((dernierSignalIR == STATION_GAUCHE && stationSignalConfirme == STATION_DROITE) ||
+        (dernierSignalIR == STATION_DROITE && stationSignalConfirme == STATION_GAUCHE)) {
+
+      if (millis() - tempsDernierSignalIR < 500) {
+        centreProbable = true;
+      }
+    }
+
+    dernierSignalIR = stationSignalConfirme;
+    tempsDernierSignalIR = millis();
+  }
 
   // ===== PUSH FINAL =====
   if (phaseBase == 4) {
@@ -147,93 +164,133 @@ void updateRetourBase() {
       stopRoues();
       modeRobot = MODE_MANUEL;
       resetStationIR();
+
       phaseBase = 0;
-      niveauScan = 0;
+      derniereDirection = STATION_AUCUN;
+      dernierSignalIR = STATION_AUCUN;
+      centreProbable = false;
     }
     return;
   }
 
-  // ===== STOP PROCHE =====
-  if (stationSignalConfirme == STATION_VU && avantMin < STOP_BASE) {
+  // ===== PROCHE BASE =====
+  if (stationSignalConfirme != STATION_AUCUN && avantMin < STOP_BASE) {
     Serial.println("[BASE] Proche -> push final");
+    stopRoues();
     debutPhase = millis();
     phaseBase = 4;
     return;
   }
 
-  // ===== PHASE 0 : SCAN DROITE PROGRESSIF =====
+  // ===== MÉMORISE DERNIÈRE DIRECTION =====
+  if (stationSignalConfirme == STATION_GAUCHE ||
+      stationSignalConfirme == STATION_DROITE ||
+      stationSignalConfirme == STATION_CENTRE) {
+    derniereDirection = stationSignalConfirme;
+  }
+
+  // ===== PHASE 0 : DÉCISION =====
   if (phaseBase == 0) {
 
-    if (stationSignalConfirme == STATION_VU) {
-      Serial.println("[BASE] IR vu -> avance");
-      stopRoues();
-      niveauScan = 0;
-      debutPhase = millis();
-      phaseBase = 2;
-      return;
-    }
-
-    const unsigned long dureeScan = 800;
-
-    tournerDroiteControle(VITESSE_TOURNE_BASE);
-
-    if (millis() - debutPhase > dureeScan) {
-      stopRoues();
-      debutPhase = millis();
-      phaseBase = 5;
-    }
-
-    return;
-  }
-
-  // ===== PHASE 5 : PAUSE ÉCOUTE =====
-  if (phaseBase == 5) {
-    stopRoues();
-
-    if (stationSignalConfirme == STATION_VU) {
-      Serial.println("[BASE] IR vu pause -> avance");
-      niveauScan = 0;
-      debutPhase = millis();
-      phaseBase = 2;
-      return;
-    }
-
-    if (millis() - debutPhase > 200) {
-      if (niveauScan < 4) {
-        niveauScan++;
-      }
-
-      debutPhase = millis();
-      phaseBase = 0;
-    }
-
-    return;
-  }
-
-  // ===== PHASE 2 : AVANCE FRANCHE =====
-  if (phaseBase == 2) {
-    avancer();
-
-    if (millis() - debutPhase > 1500) {
-      Serial.println("[BASE] Recalcul");
-      stopRoues();
+    if (stationSignalConfirme == STATION_CENTRE || centreProbable) {
+      Serial.println("[BASE] Centre/probable -> avance");
       resetStationIR();
+      debutPhase = millis();
+      phaseBase = 2;
+      return;
+    }
+
+    if (stationSignalConfirme == STATION_GAUCHE) {
+      Serial.println("[BASE] Signal gauche -> corrige gauche");
+      resetStationIR();
+      debutPhase = millis();
+      phaseBase = 10;
+      return;
+    }
+
+    if (stationSignalConfirme == STATION_DROITE) {
+      Serial.println("[BASE] Signal droite -> corrige droite");
+      resetStationIR();
+      debutPhase = millis();
+      phaseBase = 11;
+      return;
+    }
+
+    if (derniereDirection == STATION_GAUCHE) {
+      Serial.println("[BASE] Perdu apres gauche -> corrige gauche");
+      debutPhase = millis();
+      phaseBase = 10;
+      return;
+    }
+
+    if (derniereDirection == STATION_DROITE) {
+      Serial.println("[BASE] Perdu apres droite -> corrige droite");
+      debutPhase = millis();
+      phaseBase = 11;
+      return;
+    }
+
+    Serial.println("[BASE] Jamais vu -> scan droite court");
+    debutPhase = millis();
+    phaseBase = 1;
+    return;
+  }
+
+  // ===== PHASE 1 : RECHERCHE INITIALE COURTE =====
+  if (phaseBase == 1) {
+    tournerDroiteLent();
+
+    if (stationSignalConfirme != STATION_AUCUN || millis() - debutPhase > 160) {
+      stopRoues();
       debutPhase = millis();
       phaseBase = 3;
     }
-
     return;
   }
 
-  // ===== PHASE 3 : PAUSE AVANT RE-SCAN =====
+  // ===== PHASE 2 : AVANCE PLUS LONGUE =====
+  if (phaseBase == 2) {
+    avancer();
+
+    if (millis() - debutPhase > 650) {
+      stopRoues();
+      debutPhase = millis();
+      phaseBase = 3;
+    }
+    return;
+  }
+
+  // ===== PHASE 10 : CORRECTION GAUCHE COURTE =====
+  if (phaseBase == 10) {
+    tournerGaucheLent();
+
+    if (millis() - debutPhase > 80 || stationSignalConfirme == STATION_CENTRE) {
+      stopRoues();
+      debutPhase = millis();
+      phaseBase = 3;
+    }
+    return;
+  }
+
+  // ===== PHASE 11 : CORRECTION DROITE COURTE =====
+  if (phaseBase == 11) {
+    tournerDroiteLent();
+
+    if (millis() - debutPhase > 80 || stationSignalConfirme == STATION_CENTRE) {
+      stopRoues();
+      debutPhase = millis();
+      phaseBase = 3;
+    }
+    return;
+  }
+
+  // ===== PHASE 3 : PAUSE ÉCOUTE =====
   if (phaseBase == 3) {
     stopRoues();
 
-    if (millis() - debutPhase > 150) {
-      debutPhase = millis();
+    if (millis() - debutPhase > 220) {
       phaseBase = 0;
     }
-
     return;
   }
 }

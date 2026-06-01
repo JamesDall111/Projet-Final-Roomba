@@ -1,20 +1,20 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include <WebServer.h>
-#include <WebSocketsServer.h> 
+#include <WebSocketsServer.h>
 
 #include "WebControl.h"
 #include "Moteur.h"
 #include "Accessoires.h"
 #include "Batterie.h"
 #include "Capteur_IR.h"
-#include "Gestion_SansFil.h" 
+#include "Gestion_SansFil.h"
 
 const char* apName     = "SMD-Control";
 const char* apPassword = "12345678";
 
 WebServer server(80);
-WebSocketsServer webSocket = WebSocketsServer(81); 
+WebSocketsServer webSocket = WebSocketsServer(81);
 
 ModeRobot modeRobot = MODE_MANUEL;
 
@@ -29,6 +29,9 @@ String modeTexte() {
 }
 
 String signalTexte() {
+  if (stationSignalConfirme == STATION_GAUCHE) return "GAUCHE";
+  if (stationSignalConfirme == STATION_DROITE) return "DROITE";
+  if (stationSignalConfirme == STATION_CENTRE) return "CENTRE";
   if (stationSignalConfirme == STATION_VU) return "VU";
   return "AUCUN";
 }
@@ -79,8 +82,9 @@ input:checked + .slider:before{transform:translateX(30px)}
 .debugRow:last-child{border-bottom:0}
 .debugLabel{color:#94a3b8;font-size:14px}
 .debugVal{font-weight:900;font-size:15px;color:white}
-.debugVal.vu, .debugVal.connecte{color:#22c55e}
-.debugVal.aucun, .debugVal.deconnecte{color:#ef4444}
+.debugVal.vu,.debugVal.centre,.debugVal.connecte{color:#22c55e}
+.debugVal.gauche,.debugVal.droite{color:#f59e0b}
+.debugVal.aucun,.debugVal.deconnecte{color:#ef4444}
 .rawBlock{margin-top:12px;padding:12px;background:#1e293b;border-radius:16px}
 .rawTitle{color:#94a3b8;font-size:12px;margin-bottom:8px;font-weight:700;text-transform:uppercase}
 .rawGrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
@@ -94,8 +98,8 @@ String pageHTML() {
   float tension = lireTensionBatterie();
   int pct = lirePourcentageBatterie(tension);
 
-  String autoActive   = (modeRobot == MODE_AUTO)           ? "active" : "";
-  String manualActive = (modeRobot == MODE_MANUEL)          ? "active" : "";
+  String autoActive   = (modeRobot == MODE_AUTO) ? "active" : "";
+  String manualActive = (modeRobot == MODE_MANUEL) ? "active" : "";
   String retourActive = (modeRobot == MODE_RETOUR_BASE) ? "active" : "";
 
   String html = R"rawliteral(
@@ -123,9 +127,7 @@ String pageHTML() {
   <div class="robotCircle"></div>
   <div class="battery" id="txtPct">)rawliteral" + String(pct) + R"rawliteral(%</div>
   <div class="batteryText" id="txtVolts">Batterie - )rawliteral" + String(tension, 2) + R"rawliteral( V</div>
-  
-  <div class="rssiText">Signal Station : <span id="txtRssi" style="color:#22c55e;">-- dBm</span></div>
-  
+  <div class="rssiText">Signal IR : <span id="txtRssi" style="color:#22c55e;">--</span></div>
   <div class="bar"><div id="barFill" class="fill" style="height:100%;background:linear-gradient(90deg,#22c55e,#2563eb);width:)rawliteral" + String(pct) + R"rawliteral(%;"></div></div>
 </div>
 
@@ -134,7 +136,7 @@ String pageHTML() {
   <div class="modeStatus">Mode actuel : <span id="modeText">)rawliteral" + modeTexte() + R"rawliteral(</span></div>
   <div class="modeGrid">
     <button id="btnManuel" class="modeBtn )rawliteral" + manualActive + R"rawliteral(" onclick="sendWS('SET_MODE:MANUEL')">Manuel</button>
-    <button id="btnAuto"   class="modeBtn )rawliteral" + autoActive   + R"rawliteral(" onclick="sendWS('SET_MODE:AUTO')">Automatique</button>
+    <button id="btnAuto" class="modeBtn )rawliteral" + autoActive + R"rawliteral(" onclick="sendWS('SET_MODE:AUTO')">Automatique</button>
     <button id="btnRetour" class="modeBtn big )rawliteral" + retourActive + R"rawliteral(" onclick="sendWS('SET_MODE:RETOUR_BASE')">Retour base</button>
   </div>
 </div>
@@ -142,10 +144,10 @@ String pageHTML() {
 <div class="card">
   <h2>Mouvements</h2>
   <div class="controlGrid">
-    <button class="btn big"      onclick="sendWS('MOVE:AVANCE')">Avancer</button>
-    <button class="btn"          onclick="sendWS('MOVE:GAUCHE')">Gauche</button>
-    <button class="btn"          onclick="sendWS('MOVE:DROITE')">Droite</button>
-    <button class="btn big"      onclick="sendWS('MOVE:RECULE')">Reculer</button>
+    <button class="btn big" onclick="sendWS('MOVE:AVANCE')">Avancer</button>
+    <button class="btn" onclick="sendWS('MOVE:GAUCHE')">Gauche</button>
+    <button class="btn" onclick="sendWS('MOVE:DROITE')">Droite</button>
+    <button class="btn big" onclick="sendWS('MOVE:RECULE')">Reculer</button>
     <button class="btn stop big" onclick="sendWS('MOVE:STOP')">Arret</button>
   </div>
 </div>
@@ -175,14 +177,14 @@ String pageHTML() {
 var ws;
 function initWS(){
   ws = new WebSocket('ws://'+window.location.hostname+':81/');
-  ws.onopen = () => { 
-    document.getElementById('ws-toast').innerText = "CONNECTÉ EN TEMPS RÉEL"; 
+  ws.onopen = () => {
+    document.getElementById('ws-toast').innerText = "CONNECTÉ EN TEMPS RÉEL";
     document.getElementById('ws-toast').style.color = "#22c55e";
   };
-  ws.onclose = () => { 
-    document.getElementById('ws-toast').innerText = "DÉCONNECTÉ - RETENTATIVE..."; 
+  ws.onclose = () => {
+    document.getElementById('ws-toast').innerText = "DÉCONNECTÉ - RETENTATIVE...";
     document.getElementById('ws-toast').style.color = "#ef4444";
-    setTimeout(initWS, 1500); 
+    setTimeout(initWS, 1500);
   };
   ws.onmessage = (e) => {
     let d = JSON.parse(e.data);
@@ -190,18 +192,12 @@ function initWS(){
       document.getElementById("txtPct").innerText = d.pct + "%";
       document.getElementById("txtVolts").innerText = "Batterie - " + d.tension.toFixed(2) + " V";
       document.getElementById("barFill").style.width = d.pct + "%";
-      
-      // Mise à jour du RSSI avec couleur dynamique selon la force
-      let rssiEl = document.getElementById("txtRssi");
-      rssiEl.innerText = d.rssi + " dBm";
-      if(d.rssi >= -65) rssiEl.style.color = "#22c55e";      // Excellent (Vert)
-      else if(d.rssi >= -82) rssiEl.style.color = "#f59e0b"; // Moyen (Orange)
-      else rssiEl.style.color = "#ef4444";                   // Critique (Rouge)
-      
+      document.getElementById("txtRssi").innerText = d.signal;
+
       document.getElementById("btnManuel").classList.toggle("active", d.mode === "MANUEL");
       document.getElementById("btnAuto").classList.toggle("active", d.mode === "AUTO");
       document.getElementById("btnRetour").classList.toggle("active", d.mode === "RETOUR_BASE");
-      
+
       let txt = "Manuel";
       if(d.mode === "AUTO") txt = "Automatique";
       if(d.mode === "RETOUR_BASE") txt = "Retour base";
@@ -245,65 +241,51 @@ String pageDebugHTML() {
   <a href="/debug-page" class="nav-link active">Debug Diagnostic</a>
 </div>
 
-<div class="debug" style="background: linear-gradient(135deg, #1e1b4b, #311042); margin-bottom: 16px;">
-  <h2 style="color: #60a5fa;">Liaison Station (ESP-NOW)</h2>
-  <div class="debugRow">
-    <div class="debugLabel" style="color: #93c5fd;">Amarrage Physique</div>
-    <div class="debugVal deconnecte" id="dbNowContact">--</div>
-  </div>
-  <div class="debugRow">
-    <div class="debugLabel" style="color: #93c5fd;">Ordre de la Station</div>
-    <div class="debugVal" id="dbNowMsg" style="color: #cbd5e1;">--</div>
-  </div>
-  <div class="debugRow">
-    <div class="debugLabel" style="color: #93c5fd;">Force Signal Radio</div>
-    <div class="debugVal" id="dbNowRssi" style="color: #cbd5e1;">-- dBm</div>
-  </div>
-</div>
-
 <div class="debug">
-  <h2>Debug Logique IR</h2>
+  <h2>Debug IR Avant</h2>
+
   <div class="debugRow">
     <div class="debugLabel">Signal confirme</div>
     <div class="debugVal aucun" id="dbSignal">--</div>
   </div>
-  <div class="debugRow">
-    <div class="debugLabel">Dernier signal</div>
-    <div class="debugVal" id="dbTemps">--</div>
-  </div>
+
   <div class="debugRow">
     <div class="debugLabel">Mode robot</div>
     <div class="debugVal" id="dbMode">--</div>
   </div>
-  
+
   <div class="rawBlock">
-    <div class="rawTitle">Valeurs brutes recepteur</div>
+    <div class="rawTitle">Capteurs TSOP</div>
     <div class="rawGrid">
       <div class="rawItem">
-        <div class="rawItemLabel">rawlen</div>
-        <div class="rawItemVal" id="dbRawlen">--</div>
+        <div class="rawItemLabel">IR_AG GPIO39</div>
+        <div class="rawItemVal" id="dbIRAG">--</div>
       </div>
       <div class="rawItem">
-        <div class="rawItemLabel">nbBursts</div>
-        <div class="rawItemVal" id="dbBursts">--</div>
+        <div class="rawItemLabel">IR_AD GPIO21</div>
+        <div class="rawItemVal" id="dbIRAD">--</div>
       </div>
       <div class="rawItem">
-        <div class="rawItemLabel">t1 (us)</div>
-        <div class="rawItemVal" id="dbT1">--</div>
+        <div class="rawItemLabel">AG detecte</div>
+        <div class="rawItemVal" id="dbAGDetecte">--</div>
       </div>
       <div class="rawItem">
-        <div class="rawItemLabel">t2 (us)</div>
-        <div class="rawItemVal" id="dbT2">--</div>
-      </div>
-      <div class="rawItem">
-        <div class="rawItemLabel">t3 (us)</div>
-        <div class="rawItemVal" id="dbT3">--</div>
-      </div>
-      <div class="rawItem">
-        <div class="rawItemLabel">total (us)</div>
-        <div class="rawItemVal" id="dbTotal">--</div>
+        <div class="rawItemLabel">AD detecte</div>
+        <div class="rawItemVal" id="dbADDetecte">--</div>
       </div>
     </div>
+  </div>
+</div>
+
+<div class="debug" style="background: linear-gradient(135deg, #1e1b4b, #311042);">
+  <h2 style="color: #60a5fa;">Station / Contacts</h2>
+  <div class="debugRow">
+    <div class="debugLabel" style="color: #93c5fd;">Amarrage physique</div>
+    <div class="debugVal deconnecte" id="dbNowContact">--</div>
+  </div>
+  <div class="debugRow">
+    <div class="debugLabel" style="color: #93c5fd;">Message station</div>
+    <div class="debugVal" id="dbNowMsg" style="color: #cbd5e1;">--</div>
   </div>
 </div>
 
@@ -312,41 +294,44 @@ String pageDebugHTML() {
 var ws;
 function initWS(){
   ws = new WebSocket('ws://'+window.location.hostname+':81/');
-  ws.onopen = () => { 
-    document.getElementById('ws-toast').innerText = "DIAGNOSTIC ACTIF (LIVE)"; 
+
+  ws.onopen = () => {
+    document.getElementById('ws-toast').innerText = "DIAGNOSTIC ACTIF (LIVE)";
     document.getElementById('ws-toast').style.color = "#22c55e";
   };
-  ws.onclose = () => { 
-    document.getElementById('ws-toast').innerText = "DÉCONNECTÉ"; 
+
+  ws.onclose = () => {
+    document.getElementById('ws-toast').innerText = "DÉCONNECTÉ";
     document.getElementById('ws-toast').style.color = "#ef4444";
-    setTimeout(initWS, 1500); 
+    setTimeout(initWS, 1500);
   };
+
   ws.onmessage = (e) => {
     let d = JSON.parse(e.data);
+
     if(d.type === "DEBUG") {
       let el = document.getElementById("dbSignal");
       el.innerText = d.signal;
       el.className = "debugVal " + d.signal.toLowerCase();
-      document.getElementById("dbTemps").innerText = d.tempsSinceMs + " ms";
+
       document.getElementById("dbMode").innerText = d.mode;
-      document.getElementById("dbNowRssi").innerText = d.rssi + " dBm";
-      
+
+      document.getElementById("dbIRAG").innerText = d.irAG;
+      document.getElementById("dbIRAD").innerText = d.irAD;
+
+      document.getElementById("dbAGDetecte").innerText = d.agDetecte ? "OUI" : "NON";
+      document.getElementById("dbADDetecte").innerText = d.adDetecte ? "OUI" : "NON";
+
       let elContact = document.getElementById("dbNowContact");
       if(d.nowContact) {
-        elContact.innerText = "CONNECTE (Plots)";
+        elContact.innerText = "CONNECTE";
         elContact.className = "debugVal connecte";
       } else {
         elContact.innerText = "HORS LIGNE";
         elContact.className = "debugVal deconnecte";
       }
+
       document.getElementById("dbNowMsg").innerText = d.nowMsg;
-      
-      document.getElementById("dbRawlen").innerText = d.rawlen;
-      document.getElementById("dbBursts").innerText = d.nbBursts;
-      document.getElementById("dbT1").innerText     = d.t1;
-      document.getElementById("dbT2").innerText     = d.t2;
-      document.getElementById("dbT3").innerText     = d.t3;
-      document.getElementById("dbTotal").innerText  = d.total;
     }
   };
 }
@@ -358,44 +343,44 @@ window.onload = initWS;
   return html;
 }
 
-// --- TRANSMISSION DU RSSI VIA JSON ---
 void diffuserDonnees() {
   String modeStr = "MANUEL";
-  if (modeRobot == MODE_AUTO)        modeStr = "AUTO";
+  if (modeRobot == MODE_AUTO) modeStr = "AUTO";
   if (modeRobot == MODE_RETOUR_BASE) modeStr = "RETOUR_BASE";
 
   float tension = lireTensionBatterie();
   int pct = lirePourcentageBatterie(tension);
 
-  // 1. Envoi JSON pour la page principale Controle (avec rssiStation)
+  int irAG = digitalRead(IR_AG);
+  int irAD = digitalRead(IR_AD);
+
+  bool agDetecte = (irAG == LOW);
+  bool adDetecte = (irAD == LOW);
+
   String jsonTelemetrie = "{\"type\":\"TELEMETRIE\",";
   jsonTelemetrie += "\"mode\":\"" + modeStr + "\",";
   jsonTelemetrie += "\"tension\":" + String(tension, 2) + ",";
   jsonTelemetrie += "\"pct\":" + String(pct) + ",";
-  jsonTelemetrie += "\"rssi\":" + String(rssiStation) + ","; // Injection de la variable globale
+  jsonTelemetrie += "\"signal\":\"" + signalTexte() + "\",";
   jsonTelemetrie += "\"vac\":" + String(vacState ? "true" : "false") + ",";
   jsonTelemetrie += "\"main\":" + String(mainState ? "true" : "false") + ",";
   jsonTelemetrie += "\"gauche\":" + String(gaucheState ? "true" : "false") + ",";
   jsonTelemetrie += "\"droite\":" + String(droiteState ? "true" : "false");
   jsonTelemetrie += "}";
+
   webSocket.broadcastTXT(jsonTelemetrie);
 
-  // 2. Envoi JSON pour la page de Diagnostic Debug (avec rssiStation)
-  IRRawDebug d = getIRRawDebug();
   String jsonDebug = "{\"type\":\"DEBUG\",";
   jsonDebug += "\"signal\":\"" + signalTexte() + "\",";
-  jsonDebug += "\"tempsSinceMs\":" + String(millis() - dernierSignalStationMs) + ",";
   jsonDebug += "\"mode\":\"" + modeStr + "\",";
-  jsonDebug += "\"rssi\":" + String(rssiStation) + ","; // Injection de la variable globale
+  jsonDebug += "\"irAG\":" + String(irAG) + ",";
+  jsonDebug += "\"irAD\":" + String(irAD) + ",";
+  jsonDebug += "\"agDetecte\":" + String(agDetecte ? "true" : "false") + ",";
+  jsonDebug += "\"adDetecte\":" + String(adDetecte ? "true" : "false") + ",";
   jsonDebug += "\"nowContact\":" + String(donneesStation.contactsAlimentes ? "true" : "false") + ",";
-  jsonDebug += "\"nowMsg\":\"" + String(donneesStation.message) + "\",";
-  jsonDebug += "\"rawlen\":" + String(d.rawlen) + ",";
-  jsonDebug += "\"t1\":" + String(d.t1) + ",";
-  jsonDebug += "\"t2\":" + String(d.t2) + ",";
-  jsonDebug += "\"t3\":" + String(d.t3) + ",";
-  jsonDebug += "\"nbBursts\":" + String(d.nbBursts) + ",";
-  jsonDebug += "\"total\":" + String(d.total);
+  jsonDebug += "\"nowMsg\":\"" + String(donneesStation.message) + "\"";
   jsonDebug += "}";
+
   webSocket.broadcastTXT(jsonDebug);
 }
 
@@ -405,29 +390,55 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
 
     if (msg.startsWith("SET_MODE:")) {
       String modeTarget = msg.substring(9);
+
       stopRoues();
-      if (modeTarget == "MANUEL") { modeRobot = MODE_MANUEL; accessoiresOff(); moveCmd = CMD_STOP; }
-      else if (modeTarget == "AUTO") { modeRobot = MODE_AUTO; accessoiresOn(); }
-      else if (modeTarget == "RETOUR_BASE") { modeRobot = MODE_RETOUR_BASE; accessoiresOff(); }
+
+      if (modeTarget == "MANUEL") {
+        modeRobot = MODE_MANUEL;
+        accessoiresOff();
+        moveCmd = CMD_STOP;
+        resetStationIR();
+      }
+      else if (modeTarget == "AUTO") {
+        modeRobot = MODE_AUTO;
+        accessoiresOn();
+        resetStationIR();
+      }
+      else if (modeTarget == "RETOUR_BASE") {
+        modeRobot = MODE_RETOUR_BASE;
+        accessoiresOff();
+        resetStationIR();
+      }
+
       diffuserDonnees();
     }
     else if (msg.startsWith("MOVE:")) {
       String m = msg.substring(5);
+
       modeRobot = MODE_MANUEL;
+      resetStationIR();
+
       if (m == "AVANCE") moveCmd = CMD_AVANCE;
       else if (m == "RECULE") moveCmd = CMD_RECULE;
       else if (m == "GAUCHE") moveCmd = CMD_GAUCHE;
       else if (m == "DROITE") moveCmd = CMD_DROITE;
-      else { moveCmd = CMD_STOP; stopRoues(); accessoiresOff(); }
+      else {
+        moveCmd = CMD_STOP;
+        stopRoues();
+        accessoiresOff();
+      }
+
       appliquerMouvement();
       diffuserDonnees();
     }
     else if (msg.startsWith("TOGGLE:")) {
       String sub = msg.substring(7);
+
       if (sub.startsWith("VAC:")) vacState = (sub.substring(4) == "true");
       else if (sub.startsWith("MAIN:")) mainState = (sub.substring(5) == "true");
       else if (sub.startsWith("GAUCHE:")) gaucheState = (sub.substring(7) == "true");
       else if (sub.startsWith("DROITE:")) droiteState = (sub.substring(7) == "true");
+
       appliquerAccessoires();
       diffuserDonnees();
     }
@@ -438,12 +449,19 @@ void initWebControl() {
   WiFi.mode(WIFI_AP_STA);
   WiFi.softAP(apName, apPassword);
 
-  server.on("/", []() { server.send(200, "text/html", pageHTML()); });
-  server.on("/debug-page", []() { server.send(200, "text/html", pageDebugHTML()); });
+  server.on("/", []() {
+    server.send(200, "text/html", pageHTML());
+  });
+
+  server.on("/debug-page", []() {
+    server.send(200, "text/html", pageDebugHTML());
+  });
 
   server.begin();
   webSocket.begin();
   webSocket.onEvent(webSocketEvent);
+
+  Serial.println("WebControl OK");
 }
 
 void updateWebControl() {
@@ -451,6 +469,7 @@ void updateWebControl() {
   webSocket.loop();
 
   static unsigned long chronoDiff = 0;
+
   if (millis() - chronoDiff >= 400) {
     chronoDiff = millis();
     diffuserDonnees();

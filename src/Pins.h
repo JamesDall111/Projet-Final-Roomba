@@ -38,5 +38,10 @@
 // =====================
 #define BAT_SENSOR 3
 
+// =====================
+// CAPTEURS IR
+// =====================
+#define IR_AG 39
+#define IR_AD 21
 
 #endif

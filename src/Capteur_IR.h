@@ -2,30 +2,20 @@
 #define CAPTEUR_IR_H
 
 #include <Arduino.h>
-
-#define IR_RECEIVE_PIN 39
+#include "Pins.h"
 
 enum StationSignal {
   STATION_AUCUN,
-  STATION_VU,
-  STATION_INCONNU
+  STATION_GAUCHE,
+  STATION_DROITE,
+  STATION_CENTRE,
+  STATION_VU
 };
 
 extern StationSignal stationSignalConfirme;
-extern unsigned long dernierSignalStationMs;
-
-struct IRRawDebug {
-  int rawlen;
-  uint32_t t1;
-  uint32_t t2;
-  uint32_t t3;
-  int nbBursts;
-  uint32_t total;
-};
 
 void InitIR();
 void LireIR();
 void resetStationIR();
-IRRawDebug getIRRawDebug();
 
 #endif

@@ -22,7 +22,7 @@ int VITESSE_G_TOURNE = 130;
 int VITESSE_D_TOURNE = 130;
 
 int VITESSE_G_LENTE = 90;
-int VITESSE_D_LENTE = 70;
+int VITESSE_D_LENTE = 90;
 
 MoveCmd moveCmd = CMD_STOP;
 
